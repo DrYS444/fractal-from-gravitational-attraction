@@ -2,6 +2,95 @@
 // const attractors = []
 
 let prevGrid
+let isPaused = false
+let draggedAttractor = null
+let dragOffset = { x: 0, y: 0 }
+
+const getBasePalette = () => {
+	const mode = settings.color?.palette ?? "ryb_primaries_secondaries"
+	if (mode === "rgb_primaries") {
+		// RGB primaries
+		return ["#FF0000", "#00FF00", "#0000FF"]
+	}
+	// RYB primaries + secondaries (pintura)
+	return [
+		"#FF0000", // red
+		"#FFFF00", // yellow
+		"#0000FF", // blue
+		"#FF7F00", // orange
+		"#00FF00", // green
+		"#8B00FF", // violet
+	]
+}
+
+const getAttractorColorHex = (index) => {
+	const palette = getBasePalette()
+	return palette[index % palette.length]
+}
+
+const getClosestAttractor = (x, y) => {
+	if (!settings?.attractors?.length) return null
+	let best = null
+	let bestDist = Infinity
+	for (const a of settings.attractors) {
+		const d = Math.hypot(a.position.x - x, a.position.y - y)
+		if (d < bestDist) {
+			bestDist = d
+			best = a
+		}
+	}
+	return { attractor: best, dist: bestDist }
+}
+
+const togglePause = () => {
+	isPaused = !isPaused
+}
+
+const resetEverything = () => {
+	resetGrid()
+	rebuildPane?.()
+}
+
+const addAttractorAt = (x, y) => {
+	const mass = settings.attractors[0]?.mass ?? 25
+	const radius = settings.attractors[0]?.radius ?? 40
+	const colorHex = getAttractorColorHex(settings.attractors.length)
+	settings.attractors.push(new Attractor(x, y, mass, radius, colorHex))
+	resetEverything()
+}
+
+const removeAttractor = (attractor) => {
+	if (!attractor) return
+	if (settings.attractors.length <= 1) return
+	removeItemFromArray(attractor, settings.attractors)
+	resetEverything()
+}
+
+const removeClosestAttractor = (x, y) => {
+	const closest = getClosestAttractor(x, y)
+	if (!closest?.attractor) return
+	removeAttractor(closest.attractor)
+}
+
+window.appActions = window.appActions ?? {}
+window.appActions.togglePause = togglePause
+window.appActions.addAttractorAt = addAttractorAt
+window.appActions.removeClosestAttractor = removeClosestAttractor
+window.appActions.recolorAttractors = () => {
+	settings.attractors.forEach((a, index) => {
+		a.color = color(getAttractorColorHex(index))
+	})
+}
+
+const isTypingIntoUI = () => {
+	const ae = document.activeElement
+	if (!ae) return false
+	const tag = ae.tagName
+	if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true
+	if (ae.isContentEditable) return true
+	return false
+}
+
 function setup() {
   	createCanvas(windowWidth, windowHeight);
   	settings.grid = new Grid(settings.size)
@@ -13,6 +102,86 @@ function setup() {
 	settings.background.background(40)
 
 	createPane()
+}
+
+function keyPressed() {
+	if (isTypingIntoUI()) {
+		return true
+	}
+	if (key === " ") {
+		togglePause()
+		return false
+	}
+	if (key === "a" || key === "A") {
+		addAttractorAt(mouseX, mouseY)
+		return false
+	}
+	if (key === "x" || key === "X" || keyCode === BACKSPACE || keyCode === DELETE) {
+		if (draggedAttractor) {
+			removeAttractor(draggedAttractor)
+			draggedAttractor = null
+			return false
+		}
+		removeClosestAttractor(mouseX, mouseY)
+		return false
+	}
+	if (key === "r" || key === "R") {
+		resetEverything()
+		return false
+	}
+	return true
+}
+
+function mousePressed() {
+	const hit = getClosestAttractor(mouseX, mouseY)
+	if (!hit?.attractor) return true
+	const threshold = Math.max(hit.attractor.radius / 2, 18)
+	if (hit.dist > threshold) return true
+
+	draggedAttractor = hit.attractor
+	dragOffset = {
+		x: draggedAttractor.position.x - mouseX,
+		y: draggedAttractor.position.y - mouseY,
+	}
+	return false
+}
+
+function mouseDragged() {
+	if (!draggedAttractor) return true
+	draggedAttractor.position.set(mouseX + dragOffset.x, mouseY + dragOffset.y)
+	return false
+}
+
+function mouseReleased() {
+	draggedAttractor = null
+	return false
+}
+
+const simulateSequentialBudgeted = () => {
+	const maxMs = Math.max(1, settings.performance?.maxMsPerFrame ?? 12)
+	const maxOuterSteps = Math.max(1, Math.floor(settings.speed ?? 1))
+	const start = performance.now()
+
+	let outerSteps = 0
+	while (outerSteps < maxOuterSteps && performance.now() - start < maxMs) {
+		settings.grid.ensureActiveCells()
+
+		for (let cellIndex = settings.grid.activeCells.length - 1; cellIndex >= 0; cellIndex--) {
+			const activeCell = settings.grid.activeCells[cellIndex]
+			activeCell.mover.update()
+
+			for (const attractor of settings.attractors) {
+				const attracted = attractor.attract(activeCell.mover)
+				if (attracted) continue
+
+				settings.grid.fillActiveCell(attractor, activeCell)
+				settings.grid.newActiveCell()
+				break
+			}
+		}
+
+		outerSteps++
+	}
 }
 
 function draw() {
@@ -27,46 +196,13 @@ function draw() {
 		})
 	}
 	
-	if(settings.mode == "sequential"){
-		
-		
-		for (let i = 0; i < settings.speed; i++) {
-			
-			for (const activeCell of settings.grid.activeCells) {
-				activeCell.mover.update()
-				activeCell.mover.display()
-
-				for (const attractor of settings.attractors) {
-				
-					const attracted = attractor.attract(activeCell.mover)
-					if(!attracted) {
-						
-						settings.grid.fillActiveCell(attractor, activeCell)
-						settings.grid.newActiveCell()
-						break
-					}
-				}
-			}
-			// settings.grid.activeCell.mover.update()
-			// settings.grid.activeCell.mover.display()
-
-			// for (const attractor of settings.attractors) {
-				
-			// 	const attracted = attractor.attract(settings.grid.activeCell.mover)
-			// 	if(!attracted) {
-					
-			// 		settings.grid.fillActiveCell(attractor, settings.grid.activeCell)
-			// 		settings.grid.newActiveCell()
-			// 		break
-			// 	}
-			// }
-			
-		}
+	if(!isPaused && settings.mode == "sequential"){
+		simulateSequentialBudgeted()
 	}
 
-	if(settings.mode == "direct"){
+	if(!isPaused && settings.mode == "direct"){
 		
-		for (const activeCell of settings.grid.activeCells) {
+		for (const activeCell of [...settings.grid.activeCells]) {
 			let found = false
 			let count = 0 
 			do{
@@ -116,9 +252,17 @@ function draw() {
 
 	
 
-	settings.attractors.forEach( a => {
-		a.display()
-	})
+	if (settings.debug?.drawMovers) {
+		for (const activeCell of settings.grid.activeCells) {
+			activeCell.mover.display()
+		}
+	}
+
+	if (settings.debug?.drawAttractors !== false) {
+		settings.attractors.forEach((a) => {
+			a.display()
+		})
+	}
 }
 
 function setupTriangleAttractors(mass, radius) {
@@ -135,9 +279,9 @@ function setupTriangleAttractors(mass, radius) {
 		y: height/2 + radius * Math.sin(Math.PI * 5/6)
 	}
 
-	settings.attractors.push(new Attractor(p1.x, p1.y, mass, 40, "#D300C5"))
-	settings.attractors.push(new Attractor(p2.x, p2.y, mass, 40, "#FF0069"))
-	settings.attractors.push(new Attractor(p3.x, p3.y, mass, 40, "#7638FA"))
+	settings.attractors.push(new Attractor(p1.x, p1.y, mass, 40, getAttractorColorHex(0)))
+	settings.attractors.push(new Attractor(p2.x, p2.y, mass, 40, getAttractorColorHex(1)))
+	settings.attractors.push(new Attractor(p3.x, p3.y, mass, 40, getAttractorColorHex(2)))
 	// settings.attractors.push(new Attractor(width/2, height/2, mass/2, 20 , "#FF7A00"))
 
 
@@ -162,11 +306,11 @@ function setupSquareAttractors(mass, radius) {
 		x: width/2 - radius,
 		y: height/2 + radius * ratio
 	}
-	settings.attractors.push(new Attractor(width/2, height/2, mass*0.25, 25, "#C6CFCB"))
-	settings.attractors.push(new Attractor(p1.x, p1.y, mass*0.99, 40, "#752FED"))
-	settings.attractors.push(new Attractor(p2.x, p2.y, mass*1.01, 40, "#2FEDA4"))
-	settings.attractors.push(new Attractor(p3.x, p3.y, mass, 40, "#2fEDE7"))
-	settings.attractors.push(new Attractor(p4.x, p4.y, mass, 40, "#ED2FDA"))
+	settings.attractors.push(new Attractor(width/2, height/2, mass*0.25, 25, getAttractorColorHex(0)))
+	settings.attractors.push(new Attractor(p1.x, p1.y, mass*0.99, 40, getAttractorColorHex(1)))
+	settings.attractors.push(new Attractor(p2.x, p2.y, mass*1.01, 40, getAttractorColorHex(2)))
+	settings.attractors.push(new Attractor(p3.x, p3.y, mass, 40, getAttractorColorHex(3)))
+	settings.attractors.push(new Attractor(p4.x, p4.y, mass, 40, getAttractorColorHex(4)))
 }
 
 function saveGridResults(name){
@@ -203,13 +347,13 @@ function setupWindowAttractors(mass, radius) {
 		x: width/2 - radius,
 		y: height/2
 	}
-	settings.attractors.push(new Attractor(p4.x, p4.y, mass, 20 , "#7638FA"))
-	settings.attractors.push(new Attractor(p3.x, p3.y, mass, 20 , "#D300C5"))
-	settings.attractors.push(new Attractor(p2.x, p2.y, mass*1.01, 20 , "#FF0069"))
+	settings.attractors.push(new Attractor(p4.x, p4.y, mass, 20 , getAttractorColorHex(0)))
+	settings.attractors.push(new Attractor(p3.x, p3.y, mass, 20 , getAttractorColorHex(1)))
+	settings.attractors.push(new Attractor(p2.x, p2.y, mass*1.01, 20 , getAttractorColorHex(2)))
 
-	settings.attractors.push(new Attractor(p1.x, p1.y, mass*0.98, 20 , "#FFD600"))
+	settings.attractors.push(new Attractor(p1.x, p1.y, mass*0.98, 20 , getAttractorColorHex(3)))
 
-	settings.attractors.push(new Attractor(width/2, height/2, mass, 20 , "#FF7A00"))
+	settings.attractors.push(new Attractor(width/2, height/2, mass, 20 , getAttractorColorHex(4)))
 }
 
 function setupSpecialAttractors(mass, radius) {

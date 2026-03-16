@@ -105,6 +105,11 @@ class Mover {
 		this.acc.add(accForce)
 	}
 
+	applyForceXY(fx, fy) {
+		this.acc.x += fx / this.mass
+		this.acc.y += fy / this.mass
+	}
+
 	closestAttractor() {
 		let dist = Infinity
 		let closestAtt
@@ -120,13 +125,15 @@ class Mover {
 	}
 
 	applyPendulumForce(){
-		const force  = createVector(width/2 - this.position.x, height/2 - this.position.y)
-		const lengthString = Math.hypot(width/2, height/2)
-		const dist = Math.min(Math.hypot(width/2 - this.position.x, height/2 - this.position.y), lengthString)
-		const strength = Math.asin(dist/lengthString) * this.G * this.mass * 1/dist
-		// console.log(strength)
-		// console.log(force)
-		force.setMag(strength)
-		this.acc.add(force)
+		const dx = width / 2 - this.position.x
+		const dy = height / 2 - this.position.y
+		const lengthString = Math.hypot(width / 2, height / 2)
+		const dist = Math.min(Math.hypot(dx, dy), lengthString)
+		if (dist === 0) return
+
+		const strength = Math.asin(dist / lengthString) * this.G * this.mass * (1 / dist)
+		const scale = strength / dist
+		this.acc.x += dx * scale
+		this.acc.y += dy * scale
 	}
 }

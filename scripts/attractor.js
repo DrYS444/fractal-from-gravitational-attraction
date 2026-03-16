@@ -22,15 +22,17 @@ class Attractor {
 	}
 
 	attract(mover) {
-		const force = createVector(this.position.x - mover.position.x, this.position.y - mover.position.y)
-		const distance = Math.hypot(this.position.x - mover.position.x, this.position.y - mover.position.y)
+		const dx = this.position.x - mover.position.x
+		const dy = this.position.y - mover.position.y
+		const distance = Math.hypot(dx, dy)
 		const threshold = (this.radius+mover.radius)/2
 		const min = (this.radius+mover.radius)/2
 		const max = Math.hypot(width, height)
 		const adjustedDistance = Math.min(Math.max(distance, min), max)
-		const strength = this.G * (this.mass * mover.mass) / (Math.pow(adjustedDistance,2))
-		force.setMag(strength)
-		mover.applyForce(force)
+		const strength = this.G * (this.mass * mover.mass) / (adjustedDistance * adjustedDistance)
+		const denom = distance === 0 ? adjustedDistance : distance
+		const scale = strength / denom
+		mover.applyForceXY(dx * scale, dy * scale)
 
 		if(distance >= threshold) {
 			

@@ -1,12 +1,3 @@
-const pane = new Tweakpane.Pane()
-// const settings = {
-// 	scene: {
-// 		width: windowWidth,
-// 		height: windowHeight,
-// 		fps: 60
-// 	}
-// }
-
 const settings = {
 	attractors: [],
 	background: {},
@@ -18,25 +9,63 @@ const settings = {
 	layers: true,
 	flattenLayer: {},
 	minHitCount: 0,
+	color: {
+		palette: "ryb_primaries_secondaries",
+	},
+	performance: {
+		maxMsPerFrame: 12,
+	},
+	debug: {
+		drawMovers: true,
+		drawAttractors: true,
+	},
 	mover: {
 		mass: 1,
 		radius: 5
 	}
 }
 
+// Expose settings globally (p5 sketches rely on globals).
+window.settings = settings
+
+let pane = null
+try {
+	if (window.Tweakpane?.Pane) {
+		pane = new window.Tweakpane.Pane()
+	}
+} catch {
+	pane = null
+}
+
+window.appActions = window.appActions ?? {}
+
+function rebuildPane() {
+	if (!window.Tweakpane?.Pane) return
+	try {
+		pane?.dispose?.()
+	} catch {}
+	pane = new window.Tweakpane.Pane()
+	createPane()
+}
+
+window.rebuildPane = rebuildPane
+
 function removeItemFromArray(item, array) {
+	if (!Array.isArray(array)) return
 	const itemIndex = array.indexOf(item)
+	if (itemIndex < 0) return
 	array.splice(itemIndex, 1)
 }
 
-function down() {
+function down(fileName = "layer") {
 	noLoop()
 	settings.attractors.forEach((a, i) => {
-		a.layer.save(name + "_" + i + ".png")
+		a.layer.save(fileName + "_" + i + ".png")
 	})
 }
 
 function createPane(){
+	if (!pane) return
 	const gridPane = pane.addFolder({
 		title: "Grid"
 	})
@@ -56,6 +85,44 @@ function createPane(){
 			sequential: "sequential"
 		},
 	})
+
+	const colorPane = pane.addFolder({
+		title: "Color",
+	})
+	colorPane.addInput(settings.color, "palette", {
+		options: {
+			ryb_primaries_secondaries: "RYB primaries + secondaries",
+			rgb_primaries: "RGB primaries",
+		},
+	}).on("change", () => {
+		window.appActions?.recolorAttractors?.()
+	})
+
+	const perfPane = pane.addFolder({
+		title: "Performance",
+	})
+	perfPane.addInput(settings.performance, "maxMsPerFrame", {
+		min: 1,
+		max: 33,
+		step: 1,
+	})
+
+	const actionsPane = pane.addFolder({
+		title: "Actions",
+	})
+	actionsPane.addButton({ title: "Add Attractor (center)" }).on("click", () => {
+		window.appActions?.addAttractorAt?.(width / 2, height / 2)
+	})
+	actionsPane.addButton({ title: "Remove Closest Attractor" }).on("click", () => {
+		window.appActions?.removeClosestAttractor?.(width / 2, height / 2)
+	})
+	actionsPane.addButton({ title: "Pause / Resume (space)" }).on("click", () => {
+		window.appActions?.togglePause?.()
+	})
+	actionsPane.addButton({ title: "Rebuild UI" }).on("click", () => {
+		rebuildPane()
+	})
+
 	gridPane.addButton({
 		title: "Reset Grid"
 	}).on("click", () => {
@@ -68,6 +135,7 @@ function createPane(){
 }
 
 function createAttractorsPane(gridPane){
+	if (!pane) return
 	const attractorPane = gridPane.addFolder({
 		title: "attractor"
 	})
@@ -78,11 +146,12 @@ function createAttractorsPane(gridPane){
 		myPages.push({title: "A_" + adjI})
 	})
 
+	if (myPages.length === 0) return
 	const tab = attractorPane.addTab({pages: myPages})
 
 	settings.attractors.forEach((a,i) => {
 		const attrSettings = {
-			color: a.color.toString('#rrggbb'),
+			color: a.color.toString(),
 			position: {x: a.position.x - width/2, y: a.position.y - height/2}
 		}
 		tab.pages[i].addInput(attrSettings, "color")

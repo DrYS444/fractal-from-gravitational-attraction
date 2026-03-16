@@ -9,25 +9,28 @@ class Grid {
 
 		this.activeCells = []
 		this.activeMovers = []
+		this.ensureActiveCells()
+		// this.newActiveCell()
+		// this.newActiveCell()
+		// this.newActiveCell()
+		// this.newActiveCell()
+		// this.newActiveCell()
+		// this.newActiveCell()
+		// this.newActiveCell()
+		// this.newActiveCell()
+		// this.newActiveCell()
+		// this.newActiveCell()
+		// this.newActiveCell()
 
-		this.amountActive = settings.amount
-		for (let i = 0; i < this.amountActive; i++) {
-			this.newActiveCell()
-			// this.amountActive++
+
+	}
+
+	ensureActiveCells() {
+		const target = Math.max(1, Math.floor(settings.amount ?? 1))
+		while (this.activeCells.length < target) {
+			const didAdd = this.newActiveCell()
+			if (!didAdd) break
 		}
-		// this.newActiveCell()
-		// this.newActiveCell()
-		// this.newActiveCell()
-		// this.newActiveCell()
-		// this.newActiveCell()
-		// this.newActiveCell()
-		// this.newActiveCell()
-		// this.newActiveCell()
-		// this.newActiveCell()
-		// this.newActiveCell()
-		// this.newActiveCell()
-
-
 	}
 
 	createGrid(tileSize){
@@ -70,6 +73,9 @@ class Grid {
 	}
 
 	newActiveCell(){
+		const target = Math.max(1, Math.floor(settings.amount ?? 1))
+		if (this.activeCells.length >= target) return false
+
 		if(this.filledCellsCount + this.activeCells.length < this.cells.length) {
 			// this.activeCell = this.cells[this.filledCellsCount]
 			// this.mover = new Mover(this.activeCell.position.x, this.activeCell.position.y, 50, 10)
@@ -79,7 +85,7 @@ class Grid {
 			// const newActiveMover = new Mover(newActiveCell.position.x, newActiveCell.position.y, 15, 10)
 			this.activeCells.push(newActiveCell)
 			// this.activeMovers.push(newActiveMover)
-			
+			return true
 
 		} else {
 			if(this.activeCells.length == 0) {
@@ -88,6 +94,7 @@ class Grid {
 			}
 			
 		}
+		return false
 		
 	}
 
@@ -102,12 +109,8 @@ class Grid {
 		})
 
 		this.filledCellsCount = 0
-		// this.amountActive = this.cells.length < 150 ? this.cells.length : 150
-
-		for (let i = 0; i < this.amountActive; i++) {
-			this.newActiveCell()
-			
-		}
+		this.activeCells = []
+		this.ensureActiveCells()
 
 	}
 }
