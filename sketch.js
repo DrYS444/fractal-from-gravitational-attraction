@@ -5,6 +5,7 @@ let prevGrid
 let isPaused = false
 let draggedAttractor = null
 let dragOffset = { x: 0, y: 0 }
+let particles = [] // Particle effects for collisions
 
 const getBasePalette = () => {
 	const mode = settings.color?.palette ?? "ryb_primaries_secondaries"
@@ -25,6 +26,14 @@ const getBasePalette = () => {
 
 const getAttractorColorHex = (index) => {
 	const palette = getBasePalette()
+	
+	// Use chroma.js for perceptually uniform color distribution if available
+	if (window.chroma && settings.color?.useSmoothGradients && palette.length > 1) {
+		const scale = chroma.scale(palette).mode('lch')
+		const normalizedIndex = index / Math.max(1, settings.attractors.length - 1)
+		return scale(normalizedIndex).hex()
+	}
+	
 	return palette[index % palette.length]
 }
 
@@ -100,6 +109,13 @@ function setup() {
 	settings.background = createGraphics(width, height)
 	if(!settings.layers) settings.flattenLayer = createGraphics(width, height)
 	settings.background.background(40)
+	// Initialize visual effects
+	if (settings.visualFX?.enabled && window.VisualFX) {
+		VisualFX.init()
+		VisualFX.trails.decay = settings.visualFX.trailDecay ?? 0.92
+		VisualFX.glow.radius = settings.visualFX.glowRadius ?? 20
+		VisualFX.glow.intensity = settings.visualFX.glowIntensity ?? 0.6
+	}
 
 	createPane()
 }
@@ -186,6 +202,10 @@ const simulateSequentialBudgeted = () => {
 
 function draw() {
   	image(settings.background, 0, 0)
+	// Apply trail effect to background if enabled
+	if (settings.visualFX?.enabled && settings.visualFX.trails && window.VisualFX) {
+		VisualFX.applyTrail(settings.background)
+	}
 
 // createGrid(50)
 	
@@ -194,6 +214,10 @@ function draw() {
 		settings.attractors.forEach(a => {
 			image(a.layer, 0, 0)
 		})
+			// Apply glow effect before drawing layer
+			if (settings.visualFX?.enabled && settings.visualFX.glow && window.VisualFX) {
+				VisualFX.createGlow(a)
+			}
 	}
 	
 	if(!isPaused && settings.mode == "sequential"){
@@ -214,6 +238,16 @@ function draw() {
 						settings.grid.newActiveCell()
 						found = true
 						break
+						// Create particle burst on collision
+						if (settings.visualFX?.enabled && settings.visualFX.particles && window.VisualFX) {
+							const newParticles = VisualFX.createParticleBurst(
+								activeCell.position.x,
+								activeCell.position.y,
+								attractor.color,
+								8
+							)
+							particles.push(...newParticles)
+						}
 					}
 				}
 			} while(!found)
@@ -262,6 +296,11 @@ function draw() {
 		settings.attractors.forEach((a) => {
 			a.display()
 		})
+	}
+
+	// Update and render particles
+	if (settings.visualFX?.enabled && settings.visualFX.particles && window.VisualFX) {
+		VisualFX.updateParticles(particles, settings.background)
 	}
 }
 

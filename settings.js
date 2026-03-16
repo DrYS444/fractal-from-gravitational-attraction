@@ -11,6 +11,7 @@ const settings = {
 	minHitCount: 0,
 	color: {
 		palette: "ryb_primaries_secondaries",
+		useSmoothGradients: true,
 	},
 	performance: {
 		maxMsPerFrame: 12,
@@ -22,6 +23,15 @@ const settings = {
 	mover: {
 		mass: 1,
 		radius: 5
+	},
+	visualFX: {
+		enabled: true,
+		trails: true,
+		glow: true,
+		particles: true,
+		trailDecay: 0.92,
+		glowRadius: 20,
+		glowIntensity: 0.6,
 	}
 }
 
@@ -96,6 +106,58 @@ function createPane(){
 		},
 	}).on("change", () => {
 		window.appActions?.recolorAttractors?.()
+	})
+	colorPane.addInput(settings.color, "useSmoothGradients", {
+		label: "Smooth Gradients",
+	}).on("change", () => {
+		window.appActions?.recolorAttractors?.()
+	})
+
+	const visualFXPane = pane.addFolder({
+		title: "Visual FX",
+		expanded: true,
+	})
+	visualFXPane.addInput(settings.visualFX, "enabled", {
+		label: "Enable FX",
+	}).on("change", () => {
+		resetGrid()
+	})
+	visualFXPane.addInput(settings.visualFX, "trails", {
+		label: "Motion Trails",
+	}).on("change", () => {
+		resetGrid()
+	})
+	visualFXPane.addInput(settings.visualFX, "trailDecay", {
+		label: "Trail Decay",
+		min: 0.8,
+		max: 0.98,
+		step: 0.01,
+	}).on("change", (ev) => {
+		if (window.VisualFX) VisualFX.trails.decay = ev.value
+	})
+	visualFXPane.addInput(settings.visualFX, "glow", {
+		label: "Glow Effect",
+	}).on("change", () => {
+		resetGrid()
+	})
+	visualFXPane.addInput(settings.visualFX, "glowRadius", {
+		label: "Glow Radius",
+		min: 5,
+		max: 50,
+		step: 1,
+	}).on("change", (ev) => {
+		if (window.VisualFX) VisualFX.glow.radius = ev.value
+	})
+	visualFXPane.addInput(settings.visualFX, "glowIntensity", {
+		label: "Glow Intensity",
+		min: 0.2,
+		max: 1.0,
+		step: 0.05,
+	}).on("change", (ev) => {
+		if (window.VisualFX) VisualFX.glow.intensity = ev.value
+	})
+	visualFXPane.addInput(settings.visualFX, "particles", {
+		label: "Particle Effects",
 	})
 
 	const perfPane = pane.addFolder({
