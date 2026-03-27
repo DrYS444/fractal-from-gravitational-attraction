@@ -194,6 +194,8 @@ function draw() {
 		settings.attractors.forEach(a => {
 			image(a.layer, 0, 0)
 		})
+	} else {
+		image(settings.flattenLayer, 0, 0)
 	}
 	
 	if(!isPaused && settings.mode == "sequential"){
@@ -201,10 +203,10 @@ function draw() {
 	}
 
 	if(!isPaused && settings.mode == "direct"){
-		
+
 		for (const activeCell of [...settings.grid.activeCells]) {
 			let found = false
-			let count = 0 
+			let count = 0
 			do{
 				activeCell.mover.update()
 				for (const attractor of settings.attractors) {
@@ -215,6 +217,15 @@ function draw() {
 						found = true
 						break
 					}
+				}
+				count++
+				if (count > 10000) {
+					const closest = activeCell.mover.closestAttractor()
+					if (closest) {
+						settings.grid.fillActiveCell(closest, activeCell)
+						settings.grid.newActiveCell()
+					}
+					found = true
 				}
 			} while(!found)
 

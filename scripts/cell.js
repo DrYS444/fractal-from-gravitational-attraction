@@ -8,14 +8,7 @@ class Cell {
 
 	}
 	display() {
-		push()
-		noFill()
-		stroke(220)
-		circle(this.position.x, this.position.y, this.size)
-		pop()
 		if(this.filled){
-			const layer = settings.layers ? this.attractor.layer : settings.flattenLayer
-			
 			if(settings.layers == true){
 				this.attractor.layer.push()
 				this.attractor.layer.rectMode(RADIUS);
@@ -23,15 +16,15 @@ class Cell {
 				this.attractor.color.setAlpha(255)
 				this.attractor.layer.fill(this.attractor.color)
 				this.attractor.layer.square(this.position.x, this.position.y, this.size/2)
-				
-				// this.attractor.color.setAlpha(255/4)
-				// this.attractor.layer.fill(this.attractor.color)
-				// this.attractor.layer.square(this.position.x, this.position.y, this.size/2 + this.size/6)
-				// this.attractor.color.setAlpha(255/2)
-				// this.attractor.layer.fill(this.attractor.color)
-				// this.attractor.layer.square(this.position.x, this.position.y, this.size/2 + this.size/8)
-
 				this.attractor.layer.pop()
+			} else {
+				settings.flattenLayer.push()
+				settings.flattenLayer.rectMode(RADIUS)
+				settings.flattenLayer.noStroke()
+				this.attractor.color.setAlpha(255)
+				settings.flattenLayer.fill(this.attractor.color)
+				settings.flattenLayer.square(this.position.x, this.position.y, this.size/2)
+				settings.flattenLayer.pop()
 			}
 		}
 	}
